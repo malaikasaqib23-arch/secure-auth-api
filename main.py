@@ -1,7 +1,8 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from supabase import create_client, Client
 
@@ -28,6 +29,10 @@ app = FastAPI(
 class AuthRequest(BaseModel):
     email: str
     password: str
+
+
+# Security scheme for Bearer tokens
+security = HTTPBearer(auto_error=False)
 
 
 @app.get("/")
@@ -93,3 +98,26 @@ def login(data: AuthRequest):
             status_code=401,
             detail="Invalid email or password"
         )
+
+
+@app.get("/public")
+def public():
+    return {
+        "message": "This is a public route"
+    }
+
+
+@app.get("/protected")
+def protected(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    return {
+        "message": "You supplied a Bearer token",
+        "token": credentials.credentials
+    }
