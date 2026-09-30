@@ -34,6 +34,38 @@ class AuthRequest(BaseModel):
 security = HTTPBearer(auto_error=False)
 
 
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    access_token = credentials.credentials
+
+    try:
+        response = supabase.auth.get_user(access_token)
+
+        if response.user is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired token"
+            )
+
+        return response.user
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+
 @app.get("/")
 def root():
     return {
@@ -99,6 +131,13 @@ def login(data: AuthRequest):
         )
 
 
+@app.post("/auth/logout", status_code=204)
+def logout(
+    current_user=Depends(get_current_user)
+):
+    return
+
+
 @app.get("/public")
 def public():
     return {
@@ -108,35 +147,9 @@ def public():
 
 @app.get("/protected")
 def protected(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    current_user=Depends(get_current_user)
 ):
-    if credentials is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Access token required"
-        )
-
-    access_token = credentials.credentials
-
-    try:
-        response = supabase.auth.get_user(access_token)
-
-        if response.user is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid or expired token"
-            )
-
-        return {
-            "message": "Access granted",
-            "user": response.user
-        }
-
-    except HTTPException:
-        raise
-
-    except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token"
-        )
+    return {
+        "message": "Access granted",
+        "user": current_user
+    }
