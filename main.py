@@ -31,7 +31,6 @@ class AuthRequest(BaseModel):
     password: str
 
 
-# Security scheme for Bearer tokens
 security = HTTPBearer(auto_error=False)
 
 
@@ -117,7 +116,27 @@ def protected(
             detail="Access token required"
         )
 
-    return {
-        "message": "You supplied a Bearer token",
-        "token": credentials.credentials
-    }
+    access_token = credentials.credentials
+
+    try:
+        response = supabase.auth.get_user(access_token)
+
+        if response.user is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired token"
+            )
+
+        return {
+            "message": "Access granted",
+            "user": response.user
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
